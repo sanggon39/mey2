@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <canvas id="you_sihum_average_80" width="1024" height="768" style="background-color: black;"></canvas>
+    <audio id="background-music" loop hidden>
+        <source src="Final Girl - Jeremy Blake.mp3" type="audio/mpeg">
+    <script>
+        // Canvas Context
+        const canvas = document.getElementById('you_sihum_average_80');
+        const ctx = canvas.getContext('2d');
+
+        // 전역 변수
+        var mouseX = 0;
+        var mouseY = 0;
+        var players = [];
+        var foods = [];
+        var isMouseClicked = false;
+        var originalSpeed = 5; // 원래의 이동 속도
+        var fastSpeed = 10; // 클릭 시의 빠른 이동 속도
+
+        // 클래스
+        class PlayerBodyObject {
+            constructor(x, y) {
+                this.rainbowColors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
+        this.currentColorIndex = 0;
+
+        // 0.5초마다 색상 변경
+        setInterval(() => {
+            this.currentColorIndex = (this.currentColorIndex + 1) % this.rainbowColors.length;
+            this.color = this.rainbowColors[this.currentColorIndex];
+        }, 500);
+        
+                this.PlayerPosX = x;
+                this.PlayerPosY = y;
+                this.dirX = 0;
+                this.dirY = 0;
+                this.speed = originalSpeed; // 초기 이동 속도
+                this.size = 20;
+                this.color = '#ffffff'; // 파스텔톤 무지개 색상 중 하나 (연두색)
+            }
+
+            UpdatePosition(targetX, targetY) {
+                this.dirX = targetX - this.PlayerPosX;
+                this.dirY = targetY - this.PlayerPosY;
+
+                let scalar = Math.sqrt(this.dirX * this.dirX + this.dirY * this.dirY);
+
+                this.dirX /= scalar;
+                this.dirY /= scalar;
+
+                if (scalar > 10) {
+                    this.PlayerPosX += this.dirX * this.speed;
+                    this.PlayerPosY += this.dirY * this.speed;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+        ctx.arc(this.PlayerPosX, this.PlayerPosY, this.size, 0, 2 * Math.PI);
+
+        ctx.shadowColor = "#f0ff";
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        ctx.globalCompositeOperation = "lighter";
+
+        ctx.fillStyle = this.color;
+        ctx.fill();
+
+        ctx.globalCompositeOperation = "source-over";
+
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+    }
+
+            // 클릭 시 이동 속도를 빠르게
+            accelerateSpeed() {
+                this.speed = fastSpeed;
+            }
+
+            // 클릭 떼면 이동 속도를 원래대로 복원
+            restoreOriginalSpeed() {
+                this.speed = originalSpeed;
+            }
+        }
+
+        class FoodObject {
+            constructor(x, y) {
+                this.FoodPosX = x;
+                this.FoodPosY = y;
+                this.size = 10;
+                this.color = 'pink'; // 먹이의 색상
+            }
+
+            draw() {
+                // 원 그리기
+                ctx.beginPath();
+                ctx.arc(this.FoodPosX, this.FoodPosY, this.size, 0, 2 * Math.PI);
+                ctx.fillStyle = this.color;
+              
+
+               
+
+
+        ctx.shadowColor  = this.color;
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+    
+
+        ctx.fillStyle = this.color;
+        ctx.fill();
+         ctx.beginPath();
+            }
+
+            // 먹이를 머리 쪽으로 이동
+            moveTowardsHead(headX, headY) {
+                let dirX = headX - this.FoodPosX;
+                let dirY = headY - this.FoodPosY;
+
+                let distance = Math.sqrt(dirX * dirX + dirY * dirY);
+
+                if (distance <= 100) {
+                    // 먹이가 머리와 100px 이내에 있으면 먹이를 머리 쪽으로 10의 속도로 이동
+                    let speed = 10;
+                    this.FoodPosX += (dirX / distance) * speed;
+                    this.FoodPosY += (dirY / distance) * speed;
+                }
+            }
+        }
+
+        // 실행 코드
+        document.addEventListener('mousemove', onMousemove);
+        document.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('mouseup', onMouseUp);
+
+        // 게임 시작
+        initializeGame();
+
+        // 게임 루프
+        setInterval(gameLoop, 1000 / 60);
+
+        // 함수
+        function gameLoop() {
+            // Canvas 지우기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 먹이 그리기 및 먹이를 머리 쪽으로 이동
+            for (let i = 0; i < foods.length; i++) {
+                foods[i].moveTowardsHead(players[0].PlayerPosX, players[0].PlayerPosY);
+                foods[i].draw();
+            }
+
+            // 플레이어 업데이트 및 그리기
+            if (players.length > 0) {
+                for (let i = players.length - 1; i > 0; i--) {
+                    players[i].UpdatePosition(players[i - 1].PlayerPosX, players[i - 1].PlayerPosY);
+                }
+                players[0].UpdatePosition(mouseX, mouseY);
+            }
+
+            for (let i = 0; i < players.length; i++) {
+                players[i].draw();
+            }
+
+            // 플레이어가 먹이를 먹을 때
+            for (let i = 0; i < foods.length; i++) {
+                if (isColliding(players[0], foods[i])) {
+                    foods.splice(i, 1);
+                    let lastPlayer = players[players.length - 1];
+                    let newPlayer = new PlayerBodyObject(lastPlayer.PlayerPosX, lastPlayer.PlayerPosY);
+                    newPlayer.accelerateSpeed(); // 새로운 플레이어 객체도 빠른 속도로 초기화
+                    players.push(newPlayer);
+
+                    const foodX = Math.random() * canvas.width;
+                    const foodY = Math.random() * canvas.height;
+                    foods.push(new FoodObject(foodX, foodY));
+                }
+            }
+        }
+
+        function onMousemove(event) {
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        }
+
+        function onMouseDown(event) {
+            isMouseClicked = true;
+            for (let i = 0; i < players.length; i++) {
+                players[i].accelerateSpeed();
+            }
+        }
+
+        function onMouseUp(event) {
+            isMouseClicked = false;
+            for (let i = 0; i < players.length; i++) {
+                players[i].restoreOriginalSpeed();
+            }
+        }
+
+        function isColliding(obj1, obj2) {
+            return (
+                obj1.PlayerPosX < obj2.FoodPosX + obj2.size &&
+                obj1.PlayerPosX + obj1.size > obj2.FoodPosX &&
+                obj1.PlayerPosY < obj2.FoodPosY + obj2.size &&
+                obj1.PlayerPosY + obj1.size > obj2.FoodPosY
+            );
+        }
+
+        function initializeGame() {
+            players.push(new PlayerBodyObject(canvas.width / 2, canvas.height / 2));
+
+            for (let i = 0; i < 5; i++) {
+                const foodX = Math.random() * canvas.width;
+                const foodY = Math.random() * canvas.height;
+                foods.push(new FoodObject(foodX, foodY));
+            }
+            document.addEventListener('click', function() {
+            const backgroundMusic = document.getElementById('background-music');
+            backgroundMusic.play().then(function() {
+                // 음악이 성공적으로 재생되었을 때의 동작
+            }).catch(function(error) {
+                console.error("음악을 재생하는 중 오류가 발생했습니다:", error);
+            });
+        });
+        }
+    </script>
+</body>
+</html>
